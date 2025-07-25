@@ -1,0 +1,148 @@
+goal: AWS data pipeline for IoT schema drift detection
+context: The system shall use the provided JSON schema (schema_version: "1.0.0"). Explain only critical design choices.
+requirements:
+  - The system shall process 10 GB/day within $50/month.
+  - The system shall provide for configurations such as AWS account number.
+  Architecture:
+  - The system shall follow best-practices of the Medallion Architecture.
+  - The system shall use a table library that enables Schema evolution.
+  - The system shall enable query of silver and gold tables via AWS Athena.
+  - The system shall use Python code for PySpark Streaming to perform drift detection using IsolationForest.
+  - The system may use Avro as the first level of aggregation until such time it is prudent to write data to Iceberg Tables.
+  Performance:
+  - The system shall perform batch processing every 5-15 minutes.
+  - The system shall implement streaming features where feasible.
+  Metrics:
+  - The system shall collect metrics at ingress and egress of Medallion stages and emit them to a separate metrics SparkQL table.
+  - The system shall collect metrics such as size of file and number of files processed through a component
+constraints:
+  - Deploy to AWS region us-east-1
+  - Use Terraform 
+  - Use the AWS Provider for Terraform
+  - Write Terraform for use with Terragrunt
+  - Use PySpark 3.5.x
+  - Use Apache Iceberg
+  - Use ML model
+  - Decompose solution into a modular structure for staged deployment.
+deliverables:
+  - files for implementation
+  - design rationale in text output
+  - Python code as required
+  project-structure:
+   - Compose the project structure using Terraform / Terragrunt organizational best practices.
+   - For clarity, Git pipelines / CI will deploy the project from a Git repo.
+reference-schemas:
+  raw-iot-data:
+    version: 1.0.0
+    format: JSON 
+    usage: "input data"
+    schema: |
+      {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "IoTSensorData",
+        "type": "object",
+        "required": ["schema_version", "device_id", "timestamp", "location", "readings", "status"],
+        "properties": {
+            "schema_version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+            "description": "Semantic version of the schema (MAJOR.MINOR.PATCH)"
+            },
+            "device_id": {
+            "type": "string",
+            "pattern": "^sensor_[0-9]+$",
+            "description": "Unique identifier for the IoT sensor device"
+            },
+            "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of the data reading"
+            },
+            "location": {
+            "type": "object",
+            "required": ["latitude", "longitude"],
+            "properties": {
+                "latitude": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90,
+                "description": "Geographic latitude of the sensor"
+                },
+                "longitude": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180,
+                "description": "Geographic longitude of the sensor"
+                }
+            },
+            "description": "Geographic coordinates of the sensor"
+            },
+            "readings": {
+            "type": "object",
+            "required": ["temperature", "humidity", "battery_level"],
+            "properties": {
+                "temperature": {
+                "type": "object",
+                "required": ["value", "unit"],
+                "properties": {
+                    "value": {
+                    "type": "number",
+                    "minimum": -50,
+                    "maximum": 100,
+                    "description": "Temperature reading"
+                    },
+                    "unit": {
+                    "type": "string",
+                    "enum": ["Celsius", "Fahrenheit"],
+                    "description": "Unit of temperature measurement"
+                    }
+                },
+                "description": "Temperature sensor data"
+                },
+                "humidity": {
+                "type": "object",
+                "required": ["value", "unit"],
+                "properties": {
+                    "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Humidity reading"
+                    },
+                    "unit": {
+                    "type": "string",
+                    "enum": ["percent"],
+                    "description": "Unit of humidity measurement"
+                    }
+                },
+                "description": "Humidity sensor data"
+                },
+                "battery_level": {
+                "type": "object",
+                "required": ["value", "unit"],
+                "properties": {
+                    "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Battery level reading"
+                    },
+                    "unit": {
+                    "type": "string",
+                    "enum": ["percent"],
+                    "description": "Unit of battery level measurement"
+                    }
+                },
+                "description": "Battery level data"
+                }
+            },
+            "description": "Sensor readings data"
+            },
+            "status": {
+            "type": "string",
+            "enum": ["operational", "maintenance", "offline"],
+            "description": "Operational status of the sensor"
+            }
+        },
+        "additionalProperties": false
+      }
